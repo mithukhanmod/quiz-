@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>QuizCreator Studio</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- html2canvas -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Google+Sans:ital,opsz,wght@0,17..18,400..700;1,17..18,400..700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600&family=Hind+Siliguri:wght@300;400;500;600;700&family=Tiro+Bangla:ital@0;1&family=Noto+Serif+Bengali:wght@100..900&display=swap" rel="stylesheet">
+
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --glass-bg: rgba(15, 23, 42, 0.95);
+        }
+
+        body {
+            font-family: 'Google Sans', 'Plus Jakarta Sans', 'Hind Siliguri', 'Tiro Bangla', 'Noto Serif Bengali', sans-serif;
+            background-color: #020617;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.1) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(168, 85, 247, 0.1) 0px, transparent 50%);
+            color: #f8fafc;
+            /* Prevent pull-to-refresh on mobile */
+            overscroll-behavior-y: none;
+        }
+
+        input, textarea, select, button, .preview-text { font-family: inherit; }
+        #previewQuestion { line-height: 1.4; }
+
+        /* Glassmorphism */
+        .glass-panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+        }
+        
+        /* Modern Inputs */
+        .modern-input {
+            background: rgba(30, 41, 59, 0.6);
+            border: 1px solid rgba(148, 163, 184, 0.1);
+            transition: all 0.2s ease;
+            color: white;
+        }
+        .modern-input:focus {
+            background: rgba(30, 41, 59, 0.9);
+            border-color: #6366f1;
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15);
+            outline: none;
+        }
+        
+        /* Custom Scrollbar */
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; } /* Thinner for mobile */
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+        /* Smooth Transitions */
+        #captureArea, #imageContainer, #cardBody {
+            transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1), height 0.4s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s;
+        }
+        
+        .preview-option { transition: all 0.3s ease; }
+
+        .ratio-btn.active {
+            background-color: #6366f1;
+            border-color: #6366f1;
+            color: white;
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.25);
+        }
+        .ratio-btn.active i { color: white; }
+
+        #toast {
+            transform: translateY(100%);
+            opacity: 0;
+            transition: all 0.3s ease;
+        }
+        #toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+        
+        select {
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 0.5rem center;
+            background-size: 1em;
+        }
+    </style>
+</head>
+<body class="h-[100dvh] flex flex-col overflow-hidden selection:bg-indigo-500/30">
+
+    <!-- Header -->
+    <header class="h-14 md:h-16 border-b border-white/5 bg-[#0f172a]/90 backdrop-blur-md flex justify-between items-center px-4 md:px-6 shrink-0 z-50">
+        <div class="flex items-center gap-3">
+            <div class="bg-gradient-to-br from-indigo-500 to-purple-600 p-1.5 md:p-2 rounded-xl shadow-lg shadow-indigo-500/20">
+                <i class="fa-solid fa-layer-group text-white text-xs md:text-sm"></i>
+            </div>
+            <div>
+                <h1 class="text-base md:text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">QuizCreator</h1>
+            </div>
+        </div>
+        <button onclick="downloadImage()" id="downloadBtn" class="group relative inline-flex items-center gap-2 px-3 md:px-5 py-1.5 md:py-2 bg-white text-slate-900 rounded-xl font-bold text-xs md:text-sm transition-all hover:bg-indigo-50 hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(255,255,255,0.1)]">
+            <i class="fa-solid fa-download text-indigo-600"></i>
+            <span class="hidden md:inline">Export Image</span>
+            <span class="md:hidden">Save</span>
+        </button>
+    </header>
+
+    <!-- Main Workspace (Reverse col for mobile: Preview Top, Controls Bottom) -->
+    <div class="flex flex-1 overflow-hidden flex-col-reverse lg:flex-row relative">
+        
+        <!-- Sidebar Controls -->
+        <!-- UPDATED: Added flex-1 min-h-0 for mobile scrolling, moved shrink-0 to lg only -->
+        <aside class="w-full lg:w-[400px] glass-panel flex flex-col overflow-y-auto z-20 custom-scrollbar border-t lg:border-t-0 lg:border-r border-white/10 flex-1 min-h-0 lg:flex-none lg:shrink-0">
+            <div class="p-4 md:p-6 space-y-6 md:space-y-8 pb-6">
+
+                <!-- 1. Layout -->
+                <div class="space-y-3">
+                    <h2 class="text-xs font-bold text-indigo-400 uppercase tracking-widest flex items-center gap-2">
+                        <i class="fa-solid fa-crop-simple"></i> Layout
+                    </h2>
+                    <div class="grid grid-cols-4 lg:grid-cols-2 gap-2">
+                        <button onclick="setRatio('story')" id="btnStory" class="ratio-btn active flex flex-col items-center p-2 md:p-3 rounded-xl border border-white/5 bg-slate-800/50 hover:bg-slate-800 transition-all group">
+                            <i class="fab fa-tiktok text-lg md:text-xl mb-1 text-slate-400 transition-colors"></i>
+                            <span class="text-[10px] md:text-xs font-medium">9:16</span>
+                        </button>
+                        <button onclick="setRatio('portrait')" id="btnPortrait" class="ratio-btn flex flex-col items-center p-2 md:p-3 rounded-xl border border-white/5 bg-slate-800/50 hover:bg-slate-800 transition-all group">
+                            <i class="fab fa-instagram text-lg md:text-xl mb-1 text-slate-400 transition-colors"></i>
+                            <span class="text-[10px] md:text-xs font-medium">4:5</span>
+                        </button>
+                        <button onclick="setRatio('square')" id="btnSquare" class="ratio-btn flex flex-col items-center p-2 md:p-3 rounded-xl border border-white/5 bg-slate-800/50 hover:bg-slate-800 transition-all group">
+                            <i class="fab fa-facebook text-lg md:text-xl mb-1 text-slate-400 transition-colors"></i>
+                            <span class="text-[10px] md:text-xs font-medium">1:1</span>
+                        </button>
+                        <button onclick="setRatio('landscape')" id="btnLandscape" class="ratio-btn flex flex-col items-center p-2 md:p-3 rounded-xl border border-white/5 bg-slate-800/50 hover:bg-slate-800 transition-all group">
+                            <i class="fab fa-youtube text-lg md:text-xl mb-1 text-slate-400 transition-colors"></i>
+                            <span class="text-[10px] md:text-xs font-medium">16:9</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 2. Visuals -->
+                <div class="space-y-4">
+                    <h2 class="text-xs font-bold text-indigo-400 uppercase tracking-widest flex items-center gap-2">
+                        <i class="fa-solid fa-paintbrush"></i> Style
+                    </h2>
+                    
+                    <div class="relative group">
+                        <label class="flex flex-col items-center justify-center w-full h-20 md:h-24 border border-dashed border-slate-600 rounded-xl cursor-pointer bg-slate-800/30 hover:bg-slate-800/50 hover:border-indigo-500/50 transition-all">
+                            <div class="flex flex-col items-center">
+                                <i class="fa-solid fa-cloud-arrow-up text-slate-400 mb-2"></i>
+                                <span class="text-xs text-slate-400">Upload Header Image</span>
+                            </div>
+                            <input id="imageInput" type="file" class="hidden" accept="image/*" />
+                        </label>
+                    </div>
+
+                    <!-- Theme & Fit -->
+                    <div class="grid grid-cols-2 gap-3">
+                         <div class="bg-slate-800/50 p-2.5 rounded-xl border border-white/5">
+                            <label class="text-[10px] text-slate-400 font-semibold mb-1.5 block">THEME</label>
+                            <div class="flex bg-slate-900/80 p-1 rounded-lg">
+                                <button onclick="setTheme('light')" id="btnLight" class="flex-1 py-1 text-xs font-medium rounded-md bg-indigo-500 text-white shadow-sm transition-all">Light</button>
+                                <button onclick="setTheme('dark')" id="btnDark" class="flex-1 py-1 text-xs font-medium rounded-md text-slate-400 hover:text-white transition-all">Dark</button>
+                            </div>
+                        </div>
+                        <div class="bg-slate-800/50 p-2.5 rounded-xl border border-white/5">
+                            <label class="text-[10px] text-slate-400 font-semibold mb-1.5 block">IMAGE FIT</label>
+                            <div class="flex bg-slate-900/80 p-1 rounded-lg">
+                                <button onclick="setImageFit('cover')" id="btnFitCover" class="flex-1 py-1 text-xs font-medium rounded-md bg-indigo-500 text-white shadow-sm transition-all">Fill</button>
+                                <button onclick="setImageFit('contain')" id="btnFitContain" class="flex-1 py-1 text-xs font-medium rounded-md text-slate-400 hover:text-white transition-all">Fit</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Accent & Style -->
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="bg-slate-800/50 p-2.5 rounded-xl border border-white/5">
+                            <label class="text-[10px] text-slate-400 font-semibold mb-1.5 block">ACCENT</label>
+                            <input type="color" id="accentColor" value="#6366f1" class="w-full h-7 rounded cursor-pointer bg-transparent border-0 p-0">
+                        </div>
+                        <div class="bg-slate-800/50 p-2.5 rounded-xl border border-white/5">
+                            <label class="text-[10px] text-slate-400 font-semibold mb-1.5 block">STYLE</label>
+                            <select id="optionStyle" class="w-full bg-slate-900 text-[10px] text-white border border-slate-700 rounded p-1 outline-none focus:border-indigo-500 cursor-pointer h-7">
+                                <option value="default">Default</option>
+                                <option value="minimal">Minimal</option>
+                                <option value="solid">Solid</option>
+                                <option value="modern">Modern</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Typography Selector -->
+                    <div class="bg-slate-800/50 p-2.5 rounded-xl border border-white/5">
+                        <label class="text-[10px] text-slate-400 font-semibold mb-1.5 block">TYPOGRAPHY</label>
+                        <select id="fontSelect" class="w-full bg-slate-900 text-[10px] text-white border border-slate-700 rounded p-1 outline-none focus:border-indigo-500 cursor-pointer h-7">
+                            <option value="google">Google Sans (Default)</option>
+                            <option value="hind">Hind Siliguri (Bangla)</option>
+                            <option value="tiro">Tiro Bangla (Serif)</option>
+                            <option value="noto">Noto Serif Bengali</option>
+                            <option value="jakarta">Plus Jakarta Sans</option>
+                            <option value="inter">Inter</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- 3. Content -->
+                <div class="space-y-4">
+                    <h2 class="text-xs font-bold text-indigo-400 uppercase tracking-widest flex items-center gap-2">
+                        <i class="fa-solid fa-pen-to-square"></i> Content
+                    </h2>
+                    
+                    <textarea id="questionInput" rows="3" class="modern-input w-full rounded-xl p-3 text-sm resize-none" placeholder="আপনার প্রশ্ন এখানে লিখুন..."></textarea>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <input type="text" id="badgeInput" class="modern-input w-full rounded-xl py-2 px-3 text-xs" placeholder="Badge Text" value="Daily Quiz">
+                        <input type="text" id="footerTextInput" class="modern-input w-full rounded-xl py-2 px-3 text-xs" placeholder="Footer Label" value="QNA BD">
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="relative">
+                            <span class="absolute left-3 top-2 text-slate-500 text-xs">@</span>
+                            <input type="text" id="handleInput" class="modern-input w-full rounded-xl py-2 pl-7 pr-3 text-xs" placeholder="Handle">
+                        </div>
+                        <div class="relative">
+                            <span class="absolute left-3 top-2 text-slate-500 text-xs"><i class="fa-solid fa-link"></i></span>
+                            <input type="text" id="websiteInput" class="modern-input w-full rounded-xl py-2 pl-8 pr-3 text-xs" placeholder="Web Address">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. Options -->
+                <div class="space-y-2">
+                    <h2 class="text-xs font-bold text-indigo-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                        <i class="fa-solid fa-list-ul"></i> Options
+                    </h2>
+                    <input type="text" id="optA" class="modern-input w-full rounded-lg py-2 px-3 text-xs" placeholder="অপশন ক">
+                    <input type="text" id="optB" class="modern-input w-full rounded-lg py-2 px-3 text-xs" placeholder="অপশন খ">
+                    <input type="text" id="optC" class="modern-input w-full rounded-lg py-2 px-3 text-xs" placeholder="অপশন গ">
+                    <input type="text" id="optD" class="modern-input w-full rounded-lg py-2 px-3 text-xs" placeholder="অপশন ঘ">
+                </div>
+
+                <!-- 5. Watermark -->
+                <div class="pt-4 border-t border-white/5 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <h2 class="text-xs font-bold text-indigo-400 uppercase tracking-widest flex items-center gap-2">
+                            <i class="fa-solid fa-copyright"></i> Watermark
+                        </h2>
+                        <!-- Custom Toggle -->
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="watermarkToggle" class="sr-only peer" checked>
+                            <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+                        </label>
+                    </div>
+                    
+                    <div id="watermarkControls" class="space-y-3 transition-all duration-300 ease-in-out">
+                        <input type="text" id="watermarkInput" class="modern-input w-full rounded-lg py-2 px-3 text-xs" placeholder="e.g. © MyChannel" value="QNA BD">
+                        
+                        <div class="grid grid-cols-2 gap-2">
+                            <!-- Opacity Slider -->
+                            <div class="bg-slate-800/50 p-2 rounded-lg border border-white/5">
+                                <label class="text-[10px] text-slate-400 mb-1 block">Opacity</label>
+                                <input type="range" id="wmOpacity" min="20" max="100" value="80" class="w-full h-1 bg-slate-600 rounded-lg appearance-none cursor-pointer accent-indigo-500">
+                            </div>
+                             <!-- Position -->
+                            <div class="bg-slate-800/50 p-2 rounded-lg border border-white/5">
+                                <label class="text-[10px] text-slate-400 mb-1 block">Position</label>
+                                <select id="wmPosition" class="w-full bg-slate-900 text-[10px] text-white border border-slate-700 rounded p-1 outline-none focus:border-indigo-500">
+                                    <option value="br">Bottom Right</option>
+                                    <option value="bl">Bottom Left</option>
+                                    <option value="tr">Top Right</option>
+                                    <option value="tl">Top Left</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </aside>
+
+        <!-- Preview Area (Top on Mobile, Right on Desktop) -->
+        <!-- UPDATED: Added h-[45vh] lg:h-auto to constrain height on mobile so controls have space -->
+        <main class="h-[45vh] lg:h-auto flex-none lg:flex-1 flex flex-col items-center justify-center p-4 md:p-8 bg-slate-950/50 relative lg:overflow-y-auto custom-scrollbar border-b lg:border-b-0 border-white/10" id="mainPreviewContainer">
+            
+            <!-- Grid BG -->
+            <div class="absolute inset-0 opacity-20 pointer-events-none" 
+                 style="background-image: radial-gradient(#6366f1 1px, transparent 1px); background-size: 24px 24px;">
+            </div>
+
+            <!-- Dimensions Badge -->
+            <div class="absolute top-4 right-4 md:top-6 md:right-6 bg-slate-900/80 backdrop-blur px-2.5 py-1 rounded-full border border-white/10 text-[10px] text-slate-400 pointer-events-none z-10 flex gap-2 shadow-lg">
+                <span id="ratioHint">9:16</span>
+                <span class="opacity-50">|</span>
+                <span id="dimHint">360 x 640</span>
+            </div>
+
+            <!-- Wrapper for Scaling -->
+            <div id="scalingWrapper" class="relative flex items-center justify-center transition-transform duration-300 origin-top lg:origin-center">
+                
+                <!-- CAPTURE TARGET -->
+                <div id="captureArea" class="bg-white rounded-3xl overflow-hidden shadow-2xl flex flex-col relative shrink-0" style="width: 360px; height: 640px; font-family: 'Google Sans', sans-serif;">
+                    
+                    <!-- 1. Header Image (40% Height) -->
+                    <div id="imageContainer" class="relative overflow-hidden bg-slate-900 group shrink-0 h-2/5 w-full">
+                        
+                        <!-- Blur Background Layer (Hidden by default in Fill mode) -->
+                        <div id="blurBg" class="absolute inset-0 bg-cover bg-center opacity-60 blur-xl scale-110 transition-opacity duration-300 hidden" style="background-image: url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'800\' height=\'600\'%3e%3cdefs%3e%3clinearGradient id=\'g\' x1=\'0%25\' y1=\'0%25\' x2=\'100%25\' y2=\'100%25\'%3e%3cstop offset=\'0%25\' stop-color=\'%234f46e5\'/%3e%3cstop offset=\'100%25\' stop-color=\'%237c3aed\'/%3e%3c/linearGradient%3e%3c/defs%3e%3crect width=\'100%25\' height=\'100%25\' fill=\'url(%23g)\'/%3e%3ctext x=\'50%25\' y=\'50%25\' dominant-baseline=\'middle\' text-anchor=\'middle\' font-family=\'sans-serif\' font-weight=\'800\' font-size=\'150\' fill=\'white\' opacity=\'0.15\'%3eMCQ%3c/text%3e%3c/svg%3e');"></div>
+
+                        <!-- Main Image -->
+                        <img id="previewImage" src="data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' width='800' height='600'%3e%3cdefs%3e%3clinearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3e%3cstop offset='0%25' stop-color='%234f46e5'/%3e%3cstop offset='100%25' stop-color='%237c3aed'/%3e%3c/linearGradient%3e%3c/defs%3e%3crect width='100%25' height='100%25' fill='url(%23g)'/%3e%3ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-weight='800' font-size='150' fill='white' opacity='0.15'%3eMCQ%3c/text%3e%3c/svg%3e" class="relative w-full h-full object-cover z-10 transition-all duration-700 group-hover:scale-105" alt="Quiz Image">
+                        
+                        <!-- Overlays -->
+                        <div class="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-60 pointer-events-none z-20"></div>
+                        <div class="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-2xl pointer-events-none z-20"></div>
+
+                        <!-- Badge -->
+                        <div class="absolute top-4 left-4 z-30">
+                            <div class="bg-white/10 backdrop-blur-md border border-white/20 px-3 py-1.5 rounded-full shadow-xl flex items-center gap-2 group-hover:bg-white/20 transition-all duration-300">
+                                <span class="relative flex h-2 w-2">
+                                  <span id="badgePing" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                                  <span id="badgeDot" class="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
+                                </span>
+                                <span id="previewBadgeText" class="text-[10px] font-bold text-white uppercase tracking-widest drop-shadow-sm">Daily Quiz</span>
+                            </div>
+                        </div>
+
+                        <!-- Watermark -->
+                        <div id="previewWatermark" class="absolute bottom-3 right-3 z-30 bg-black/50 backdrop-blur-md px-2 py-1 rounded border border-white/20 shadow-sm transition-all duration-300 flex items-center justify-center">
+                            <span id="previewWatermarkText" class="text-[10px] font-bold text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.8)] tracking-wide leading-none">QNA BD</span>
+                        </div>
+                    </div>
+
+                    <!-- 2. Body -->
+                    <div id="cardBody" class="p-5 bg-white transition-colors duration-300 flex-1 flex flex-col min-h-0 overflow-hidden relative z-10">
+                        <h2 id="previewQuestion" class="font-display font-bold text-slate-800 leading-snug mb-4 shrink-0 transition-all duration-300">
+                            বাংলাদেশের রাজধানী কোনটি?
+                        </h2>
+
+                        <div id="optionsContainer" class="space-y-2 mt-auto w-full shrink-0">
+                            <!-- Options A-D -->
+                            <div class="preview-option group flex items-center p-2.5 rounded-lg border-2 border-slate-100 bg-slate-50/50 transition-all duration-200">
+                                <span class="w-6 h-6 shrink-0 bg-white text-slate-700 font-bold rounded-md flex items-center justify-center mr-3 shadow-sm border border-slate-100 text-xs">A</span>
+                                <span id="previewOptA" class="flex-1 text-slate-600 font-medium text-sm leading-tight break-words">ঢাকা</span>
+                            </div>
+                            <div class="preview-option group flex items-center p-2.5 rounded-lg border-2 border-slate-100 bg-slate-50/50 transition-all duration-200">
+                                <span class="w-6 h-6 shrink-0 bg-white text-slate-700 font-bold rounded-md flex items-center justify-center mr-3 shadow-sm border border-slate-100 text-xs">B</span>
+                                <span id="previewOptB" class="flex-1 text-slate-600 font-medium text-sm leading-tight break-words">চট্টগ্রাম</span>
+                            </div>
+                            <div class="preview-option group flex items-center p-2.5 rounded-lg border-2 border-slate-100 bg-slate-50/50 transition-all duration-200">
+                                <span class="w-6 h-6 shrink-0 bg-white text-slate-700 font-bold rounded-md flex items-center justify-center mr-3 shadow-sm border border-slate-100 text-xs">C</span>
+                                <span id="previewOptC" class="flex-1 text-slate-600 font-medium text-sm leading-tight break-words">সিলেট</span>
+                            </div>
+                            <div class="preview-option group flex items-center p-2.5 rounded-lg border-2 border-slate-100 bg-slate-50/50 transition-all duration-200">
+                                <span class="w-6 h-6 shrink-0 bg-white text-slate-700 font-bold rounded-md flex items-center justify-center mr-3 shadow-sm border border-slate-100 text-xs">D</span>
+                                <span id="previewOptD" class="flex-1 text-slate-600 font-medium text-sm leading-tight break-words">রাজশাহী</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 3. Footer -->
+                    <div id="cardFooter" class="bg-indigo-600 px-3 py-2 flex justify-between items-center text-white shrink-0 relative overflow-hidden z-20">
+                        <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent transform -skew-x-12 translate-x-full animate-[shimmer_3s_infinite]"></div>
+                        <div class="flex items-center gap-1.5 relative z-10">
+                             <div class="bg-white/20 p-0.5 rounded backdrop-blur-sm">
+                                <i class="fa-solid fa-circle-question text-[10px]"></i>
+                             </div>
+                             <span id="previewFooterText" class="font-bold text-[10px] tracking-wide">QNA BD</span>
+                        </div>
+                        <div class="flex flex-col items-end leading-none gap-0.5 relative z-10 opacity-90">
+                            <span class="text-[10px] font-medium" id="previewHandle">@qnabd</span>
+                            <span class="text-[8px] font-medium opacity-80 hidden" id="previewWebsite">www.example.com</span>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="fixed bottom-6 right-6 bg-slate-800 text-white px-4 py-3 rounded-xl shadow-2xl border border-white/10 flex items-center gap-3 z-50">
+        <i class="fa-solid fa-circle-check text-green-400"></i>
+        <div class="text-sm font-medium">Image downloaded successfully!</div>
+    </div>
+
+    <script>
+        // --- Configuration & State ---
+        const CONFIG = {
+            story:    { w: '360px', h: '640px', imgH: 'h-2/5', imgW: 'w-full', body: 'flex-1', layout: 'stack', padding: 'p-5' },
+            portrait: { w: '360px', h: '450px', imgH: 'h-2/5', imgW: 'w-full', body: 'flex-1', layout: 'grid',  padding: 'p-4' },
+            square:   { w: '400px', h: '400px', imgH: 'h-2/5', imgW: 'w-full', body: 'flex-1', layout: 'grid',  padding: 'p-3' },
+            landscape:{ w: '640px', h: '360px', imgH: 'h-full', imgW: 'w-2/5',  body: 'w-3/5', layout: 'stack', padding: 'p-5' }
+        };
+        
+        let state = { theme: 'light', color: '#6366f1', optStyle: 'default' };
+
+        // --- DOM Elements ---
+        const elements = {
+            imgIn: document.getElementById('imageInput'),
+            prevImg: document.getElementById('previewImage'),
+            blurBg: document.getElementById('blurBg'),
+            imgCont: document.getElementById('imageContainer'),
+            capArea: document.getElementById('captureArea'),
+            scalingWrapper: document.getElementById('scalingWrapper'),
+            mainPreviewContainer: document.getElementById('mainPreviewContainer'),
+            body: document.getElementById('cardBody'),
+            optCont: document.getElementById('optionsContainer'),
+            quesIn: document.getElementById('questionInput'),
+            prevQues: document.getElementById('previewQuestion'),
+            badgeIn: document.getElementById('badgeInput'),
+            prevBadge: document.getElementById('previewBadgeText'),
+            footIn: document.getElementById('footerTextInput'),
+            prevFoot: document.getElementById('previewFooterText'),
+            handleIn: document.getElementById('handleInput'),
+            prevHandle: document.getElementById('previewHandle'),
+            webIn: document.getElementById('websiteInput'),
+            prevWeb: document.getElementById('previewWebsite'),
+            wmCheck: document.getElementById('watermarkToggle'),
+            wmControls: document.getElementById('watermarkControls'),
+            wmIn: document.getElementById('watermarkInput'),
+            wmOpacity: document.getElementById('wmOpacity'),
+            wmPosition: document.getElementById('wmPosition'),
+            prevWm: document.getElementById('previewWatermark'),
+            prevWmText: document.getElementById('previewWatermarkText'),
+            footer: document.getElementById('cardFooter'),
+            btnLight: document.getElementById('btnLight'),
+            btnDark: document.getElementById('btnDark'),
+            accent: document.getElementById('accentColor'),
+            optStyleSelect: document.getElementById('optionStyle'),
+            btnFitCover: document.getElementById('btnFitCover'),
+            btnFitContain: document.getElementById('btnFitContain'),
+            fontSelect: document.getElementById('fontSelect')
+        };
+
+        const optInputs = ['A','B','C','D'].map(id => ({
+            in: document.getElementById(`opt${id}`),
+            prev: document.getElementById(`previewOpt${id}`)
+        }));
+
+        // --- Logic: Font Switching ---
+        const fonts = {
+            'google': "'Google Sans', sans-serif",
+            'hind': "'Hind Siliguri', sans-serif",
+            'tiro': "'Tiro Bangla', serif",
+            'noto': "'Noto Serif Bengali', serif",
+            'jakarta': "'Plus Jakarta Sans', sans-serif",
+            'inter': "'Inter', sans-serif"
+        };
+
+        elements.fontSelect.addEventListener('change', (e) => {
+            const selectedFont = fonts[e.target.value];
+            elements.capArea.style.fontFamily = selectedFont;
+            
+            if(e.target.value === 'hind' || e.target.value === 'tiro' || e.target.value === 'noto') {
+                elements.prevQues.style.lineHeight = '1.5';
+            } else {
+                elements.prevQues.style.lineHeight = '1.4';
+            }
+            resizeText();
+        });
+
+        // --- Logic: Ratios & Layout ---
+        function setRatio(mode) {
+            document.querySelectorAll('.ratio-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('btn' + mode.charAt(0).toUpperCase() + mode.slice(1)).classList.add('active');
+
+            const cfg = CONFIG[mode];
+            const { capArea, imgCont, body, optCont } = elements;
+
+            capArea.style.width = cfg.w;
+            capArea.style.height = cfg.h;
+            
+            const baseImg = "relative overflow-hidden bg-slate-900 group shrink-0 transition-all duration-300";
+            imgCont.className = `${baseImg} ${cfg.imgH} ${cfg.imgW}`;
+            
+            const baseBody = "transition-colors duration-300 flex flex-col min-h-0 overflow-hidden relative z-10";
+            body.className = `${baseBody} ${cfg.body} ${cfg.padding}`;
+            if(state.theme === 'dark') body.classList.add('bg-slate-900');
+            else body.classList.add('bg-white');
+
+            capArea.classList.remove('flex-row', 'flex-col');
+            capArea.classList.add(mode === 'landscape' ? 'flex-row' : 'flex-col');
+
+            if(cfg.layout === 'grid') {
+                optCont.className = "grid grid-cols-2 gap-2 mt-auto w-full shrink-0";
+            } else {
+                optCont.className = "space-y-2 mt-auto w-full shrink-0";
+            }
+
+            document.getElementById('ratioHint').textContent = mode === 'story' ? '9:16' : mode === 'portrait' ? '4:5' : mode === 'square' ? '1:1' : '16:9';
+            document.getElementById('dimHint').textContent = `${cfg.w.replace('px','')} x ${cfg.h.replace('px','')}`;
+
+            resizeText();
+            applyOptionStyles();
+            scalePreview(); // Important: Rescale on ratio change
+        }
+
+        // --- Logic: Mobile Scaling ---
+        function scalePreview() {
+            const container = elements.mainPreviewContainer;
+            const content = elements.capArea;
+            const wrapper = elements.scalingWrapper;
+            
+            // Get dimensions
+            const containerWidth = container.clientWidth - 32; // - padding
+            const containerHeight = container.clientHeight - 32;
+            const contentWidth = parseInt(content.style.width);
+            const contentHeight = parseInt(content.style.height);
+            
+            // Calculate Scale
+            let scale = Math.min(1, containerWidth / contentWidth);
+            
+            // Check if height overflows too much on desktop, but mainly width matters for mobile
+            // On mobile, we might want to restrict height too if it pushes content off
+            // But usually width is the constraint.
+            
+            wrapper.style.transform = `scale(${scale})`;
+            
+            // Set wrapper size to match scaled content so layout flows correctly
+            wrapper.style.width = `${contentWidth * scale}px`;
+            wrapper.style.height = `${contentHeight * scale}px`;
+            
+            // Reset transform origin for correct placement
+            // wrapper.style.transformOrigin = 'top center'; // handled in CSS
+        }
+
+        window.addEventListener('resize', scalePreview);
+
+        // --- Logic: Image Fit ---
+        function setImageFit(mode) {
+            if (mode === 'cover') {
+                elements.prevImg.classList.remove('object-contain', 'shadow-2xl');
+                elements.prevImg.classList.add('object-cover');
+                elements.blurBg.classList.add('hidden');
+                
+                elements.btnFitCover.classList.remove('text-slate-400', 'bg-transparent');
+                elements.btnFitCover.classList.add('bg-indigo-500', 'text-white', 'shadow-sm');
+                elements.btnFitContain.classList.remove('bg-indigo-500', 'text-white', 'shadow-sm');
+                elements.btnFitContain.classList.add('text-slate-400', 'bg-transparent');
+            } else {
+                elements.prevImg.classList.remove('object-cover');
+                elements.prevImg.classList.add('object-contain', 'shadow-2xl');
+                elements.blurBg.classList.remove('hidden');
+                
+                elements.btnFitContain.classList.remove('text-slate-400', 'bg-transparent');
+                elements.btnFitContain.classList.add('bg-indigo-500', 'text-white', 'shadow-sm');
+                elements.btnFitCover.classList.remove('bg-indigo-500', 'text-white', 'shadow-sm');
+                elements.btnFitCover.classList.add('text-slate-400', 'bg-transparent');
+            }
+        }
+
+        // --- Logic: Themes & Styles ---
+        function setTheme(t) {
+            state.theme = t;
+            const { body, prevQues, btnLight, btnDark } = elements;
+            
+            if(t === 'light') {
+                body.classList.remove('bg-slate-900'); body.classList.add('bg-white');
+                prevQues.classList.remove('text-white'); prevQues.classList.add('text-slate-800');
+                btnLight.style.backgroundColor = state.color; btnLight.classList.add('text-white');
+                btnDark.style.backgroundColor = 'transparent'; btnDark.classList.remove('text-white');
+            } else {
+                body.classList.remove('bg-white'); body.classList.add('bg-slate-900');
+                prevQues.classList.remove('text-slate-800'); prevQues.classList.add('text-white');
+                btnDark.style.backgroundColor = state.color; btnDark.classList.add('text-white');
+                btnLight.style.backgroundColor = 'transparent'; btnLight.classList.remove('text-white');
+            }
+            
+            applyOptionStyles();
+        }
+
+        function applyOptionStyles() {
+            const opts = document.querySelectorAll('.preview-option');
+            const style = state.optStyle;
+            const theme = state.theme;
+            
+            const colorMap = [
+                { bg: 'bg-rose-500', text: 'text-rose-600', border: 'border-rose-500', tint: 'bg-rose-500/10', darkText: 'text-rose-400' },
+                { bg: 'bg-indigo-500', text: 'text-indigo-600', border: 'border-indigo-500', tint: 'bg-indigo-500/10', darkText: 'text-indigo-400' },
+                { bg: 'bg-emerald-500', text: 'text-emerald-600', border: 'border-emerald-500', tint: 'bg-emerald-500/10', darkText: 'text-emerald-400' },
+                { bg: 'bg-amber-500', text: 'text-amber-600', border: 'border-amber-500', tint: 'bg-amber-500/10', darkText: 'text-amber-400' }
+            ];
+            
+            opts.forEach((el, i) => {
+                const colors = colorMap[i];
+                el.className = "preview-option group flex items-center p-2.5 rounded-xl transition-all duration-300 relative overflow-hidden";
+                el.style = ""; 
+                
+                const idx = el.querySelector('span:first-child');
+                idx.className = "w-8 h-8 shrink-0 font-bold rounded-lg flex items-center justify-center mr-3 text-sm transition-all shadow-sm z-10";
+                idx.style = "";
+                
+                const txt = el.querySelector('span:last-child');
+                txt.className = "flex-1 font-medium text-sm leading-tight break-words z-10";
+                
+                if (style === 'default') {
+                    idx.classList.add('text-white', colors.bg);
+                    if(theme === 'light') {
+                        el.classList.add('bg-slate-50', 'border-2', 'border-slate-100');
+                        txt.classList.add('text-slate-700');
+                    } else {
+                        el.classList.add('bg-slate-800/50', 'border-2', 'border-slate-700');
+                        txt.classList.add('text-slate-200');
+                    }
+                } else if (style === 'minimal') {
+                    idx.classList.add('border-2', 'bg-transparent', colors.border);
+                    if(theme === 'light') {
+                        el.classList.add('border', 'border-slate-200', 'bg-white');
+                        idx.classList.add(colors.text);
+                        txt.classList.add('text-slate-700');
+                    } else {
+                        el.classList.add('border', 'border-slate-700', 'bg-slate-800/30');
+                        idx.classList.add(colors.darkText);
+                        txt.classList.add('text-slate-200');
+                    }
+                } else if (style === 'solid') {
+                    el.classList.add(colors.bg, 'shadow-md', 'border-0');
+                    idx.classList.add('bg-white/20', 'text-white', 'backdrop-blur-md');
+                    txt.classList.add('text-white', 'font-semibold', 'drop-shadow-sm');
+                } else if (style === 'modern') {
+                    el.classList.add(colors.tint, 'border-0');
+                    if(theme === 'light') {
+                        idx.classList.add('bg-white', colors.text, 'shadow-sm');
+                        txt.classList.add('text-slate-800');
+                    } else {
+                        idx.classList.add('bg-slate-800', colors.darkText, 'shadow-sm');
+                        txt.classList.add('text-white');
+                    }
+                }
+            });
+        }
+
+        // --- Logic: Text Resizing ---
+        function resizeText() {
+            const text = elements.quesIn.value || "আপনার প্রশ্ন এখানে লিখুন...";
+            const len = text.length;
+            const el = elements.prevQues;
+            const isGrid = elements.optCont.classList.contains('grid');
+
+            el.className = el.className.replace(/text-(4xl|3xl|2xl|xl|lg|base|sm|xs)/g, '').trim();
+
+            if(isGrid) {
+                if (len < 25) el.classList.add('text-2xl');
+                else if (len < 50) el.classList.add('text-xl');
+                else if (len < 85) el.classList.add('text-lg');
+                else if (len < 120) el.classList.add('text-base');
+                else el.classList.add('text-sm');
+            } else {
+                if (len < 25) el.classList.add('text-3xl');
+                else if (len < 50) el.classList.add('text-2xl');
+                else if (len < 85) el.classList.add('text-xl');
+                else if (len < 120) el.classList.add('text-lg');
+                else el.classList.add('text-base');
+            }
+            el.textContent = text;
+        }
+
+        // --- Logic: Events ---
+        
+        elements.imgIn.addEventListener('change', e => {
+            const file = e.target.files[0];
+            if(file) {
+                const reader = new FileReader();
+                reader.onload = ev => {
+                    const result = ev.target.result;
+                    elements.prevImg.src = result;
+                    elements.blurBg.style.backgroundImage = `url('${result}')`;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        elements.quesIn.addEventListener('input', resizeText);
+        elements.badgeIn.addEventListener('input', e => elements.prevBadge.textContent = e.target.value || "Daily Quiz");
+        elements.footIn.addEventListener('input', e => elements.prevFoot.textContent = e.target.value || "QNA BD");
+        
+        function updateFooter() {
+            const hVal = elements.handleIn.value.trim();
+            const wVal = elements.webIn.value.trim();
+            
+            if (!hVal && wVal) {
+                elements.prevHandle.classList.add('hidden');
+                elements.prevWeb.textContent = wVal;
+                elements.prevWeb.className = "text-[10px] font-medium"; 
+            } else {
+                elements.prevHandle.classList.remove('hidden');
+                elements.prevHandle.textContent = hVal ? (hVal.startsWith('@') ? hVal : '@' + hVal) : '@qnabd';
+                if (wVal) {
+                    elements.prevWeb.textContent = wVal;
+                    elements.prevWeb.className = "text-[8px] font-medium opacity-80";
+                } else {
+                    elements.prevWeb.className = "hidden";
+                }
+            }
+        }
+        
+        elements.handleIn.addEventListener('input', updateFooter);
+        elements.webIn.addEventListener('input', updateFooter);
+        
+        optInputs.forEach(o => {
+            o.in.addEventListener('input', e => {
+                o.prev.textContent = e.target.value || "অপশন";
+                o.prev.className = o.prev.className.replace(/text-(sm|xs|\[10px\])/g, '').trim();
+                const len = o.prev.textContent.length;
+                if(len < 30) o.prev.classList.add('text-sm');
+                else if(len < 60) o.prev.classList.add('text-xs');
+                else o.prev.classList.add('text-[10px]');
+            });
+        });
+
+        elements.wmCheck.addEventListener('change', e => {
+            elements.wmControls.classList.toggle('hidden', !e.target.checked);
+            elements.prevWm.classList.toggle('hidden', !e.target.checked);
+        });
+        
+        elements.wmIn.addEventListener('input', e => elements.prevWmText.textContent = e.target.value || "QNA BD");
+        
+        elements.wmOpacity.addEventListener('input', e => {
+            elements.prevWm.style.opacity = e.target.value / 100;
+        });
+        
+        elements.wmPosition.addEventListener('change', e => {
+            const pos = e.target.value;
+            const el = elements.prevWm;
+            el.className = el.className.replace(/(top|bottom|left|right)-[23]/g, '').trim();
+            el.classList.remove('top-3', 'bottom-3', 'left-3', 'right-3');
+            if(pos === 'br') el.classList.add('bottom-3', 'right-3');
+            if(pos === 'bl') el.classList.add('bottom-3', 'left-3');
+            if(pos === 'tr') el.classList.add('top-3', 'right-3');
+            if(pos === 'tl') el.classList.add('top-3', 'left-3');
+        });
+
+        elements.optStyleSelect.addEventListener('change', e => {
+            state.optStyle = e.target.value;
+            applyOptionStyles();
+        });
+
+        elements.accent.addEventListener('input', e => {
+            state.color = e.target.value;
+            elements.footer.style.backgroundColor = state.color;
+            setTheme(state.theme);
+            
+            const ping = document.getElementById('badgePing');
+            const dot = document.getElementById('badgeDot');
+            if(ping) ping.style.backgroundColor = state.color;
+            if(dot) dot.style.backgroundColor = state.color;
+
+            let style = document.getElementById('dynStyle');
+            if(!style) { style = document.createElement('style'); style.id='dynStyle'; document.head.appendChild(style); }
+            style.innerHTML = `.ratio-btn.active { background-color: ${state.color} !important; border-color: ${state.color} !important; }`;
+            
+            if(elements.prevImg.classList.contains('object-cover')) {
+               elements.btnFitCover.classList.add('bg-indigo-500', 'text-white');
+            }
+        });
+
+        async function downloadImage() {
+            const btn = document.getElementById('downloadBtn');
+            const icon = btn.querySelector('i');
+            
+            // Loading State
+            icon.className = "fa-solid fa-circle-notch fa-spin text-indigo-600";
+            btn.classList.add('opacity-75', 'cursor-not-allowed');
+
+            try {
+                // IMPORTANT: Reset transform before capture to ensure high res, then restore
+                const originalTransform = elements.scalingWrapper.style.transform;
+                elements.scalingWrapper.style.transform = "none";
+                
+                const canvas = await html2canvas(elements.capArea, {
+                    scale: 3,
+                    useCORS: true,
+                    backgroundColor: state.theme === 'light' ? '#ffffff' : '#0f172a',
+                    logging: false
+                });
+
+                // Restore transform for viewing
+                elements.scalingWrapper.style.transform = originalTransform;
+
+                const link = document.createElement('a');
+                link.download = `quiz-card-${Date.now()}.png`;
+                link.href = canvas.toDataURL('image/png', 1.0);
+                link.click();
+                
+                const toast = document.getElementById('toast');
+                toast.classList.add('show');
+                setTimeout(() => toast.classList.remove('show'), 3000);
+
+            } catch (err) {
+                console.error(err);
+                alert("Failed to generate image.");
+            } finally {
+                icon.className = "fa-solid fa-download text-indigo-600";
+                btn.classList.remove('opacity-75', 'cursor-not-allowed');
+            }
+        }
+
+        // Init
+        setRatio('story');
+    </script>
+</body>
+</html>
